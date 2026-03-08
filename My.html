@@ -1,1 +1,308 @@
-<h1>My Name is Srinivas</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG Simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+*{
+box-sizing:border-box;
+font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+body{
+margin:0;
+background:#0f172a;
+color:#e2e8f0;
+}
+
+header{
+padding:25px;
+font-size:26px;
+font-weight:600;
+background:#020617;
+border-bottom:1px solid #1e293b;
+}
+
+.container{
+max-width:1200px;
+margin:auto;
+padding:30px;
+}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+.card{
+background:#020617;
+padding:20px;
+border-radius:12px;
+border:1px solid #1e293b;
+}
+
+h2{
+margin-top:0;
+font-size:18px;
+color:#38bdf8;
+}
+
+textarea,input{
+width:100%;
+padding:12px;
+border-radius:8px;
+border:1px solid #334155;
+background:#020617;
+color:white;
+margin-top:10px;
+}
+
+button{
+margin-top:12px;
+padding:10px 16px;
+background:#2563eb;
+border:none;
+border-radius:8px;
+color:white;
+cursor:pointer;
+font-weight:500;
+}
+
+button:hover{
+background:#1d4ed8;
+}
+
+.step{
+padding:10px;
+margin-top:10px;
+background:#020617;
+border:1px dashed #334155;
+border-radius:8px;
+}
+
+.doc{
+background:#020617;
+padding:10px;
+border-radius:8px;
+margin-top:10px;
+border:1px solid #334155;
+}
+
+.highlight{
+border:1px solid #22c55e;
+background:#052e16;
+}
+
+.vector{
+font-family:monospace;
+font-size:12px;
+color:#94a3b8;
+}
+
+.answer{
+background:#020617;
+border:1px solid #38bdf8;
+padding:15px;
+border-radius:8px;
+margin-top:10px;
+}
+
+footer{
+margin-top:40px;
+font-size:12px;
+color:#64748b;
+text-align:center;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+RAG (Retrieval Augmented Generation) Simulator
+</header>
+
+<div class="container">
+
+<div class="grid">
+
+<div class="card">
+
+<h2>Knowledge Base</h2>
+
+<div id="docs"></div>
+
+</div>
+
+
+<div class="card">
+
+<h2>User Query</h2>
+
+<input id="query" placeholder="Ask something..." />
+
+<button onclick="runRAG()">Run RAG</button>
+
+<div id="steps"></div>
+
+</div>
+
+</div>
+
+
+<div class="card" style="margin-top:20px">
+
+<h2>LLM Answer</h2>
+
+<div id="answer"></div>
+
+</div>
+
+<footer>
+Local browser RAG simulation — embeddings + cosine similarity + prompt augmentation
+</footer>
+
+</div>
+
+<script>
+
+const documents = [
+
+"Python is a popular programming language for AI and data science.",
+"Vector databases store embeddings for similarity search.",
+"Retrieval Augmented Generation improves LLM answers using external knowledge.",
+"Transformers are neural networks used in modern language models.",
+"Embeddings convert text into numerical vectors."
+
+];
+
+const DIM = 8
+
+function randomVector(){
+let v=[]
+for(let i=0;i<DIM;i++){
+v.push(Math.random())
+}
+return v
+}
+
+function cosine(a,b){
+
+let dot=0
+let ma=0
+let mb=0
+
+for(let i=0;i<a.length;i++){
+dot+=a[i]*b[i]
+ma+=a[i]*a[i]
+mb+=b[i]*b[i]
+}
+
+return dot/(Math.sqrt(ma)*Math.sqrt(mb))
+}
+
+const docVectors = documents.map(()=>randomVector())
+
+function showDocs(){
+
+const container=document.getElementById("docs")
+container.innerHTML=""
+
+documents.forEach((d,i)=>{
+
+const div=document.createElement("div")
+div.className="doc"
+
+div.innerHTML=`
+${d}
+<div class="vector">embedding: ${docVectors[i].map(n=>n.toFixed(2)).join(", ")}</div>
+`
+
+container.appendChild(div)
+
+})
+
+}
+
+showDocs()
+
+function runRAG(){
+
+const query=document.getElementById("query").value
+
+const steps=document.getElementById("steps")
+steps.innerHTML=""
+
+const queryVector=randomVector()
+
+steps.innerHTML+=`
+<div class="step">
+<b>Step 1 — Query Embedding</b>
+<div class="vector">${queryVector.map(n=>n.toFixed(2)).join(", ")}</div>
+</div>
+`
+
+let scores=docVectors.map((vec,i)=>({
+
+doc:documents[i],
+score:cosine(queryVector,vec)
+
+}))
+
+scores.sort((a,b)=>b.score-a.score)
+
+const top=scores.slice(0,2)
+
+steps.innerHTML+=`
+<div class="step">
+<b>Step 2 — Vector Search</b>
+Top matches selected via cosine similarity.
+</div>
+`
+
+steps.innerHTML+=`
+<div class="step">
+<b>Step 3 — Retrieved Context</b>
+${top.map(t=>`<div class="doc highlight">${t.doc}</div>`).join("")}
+</div>
+`
+
+const context=top.map(t=>t.doc).join("\n")
+
+const augmentedPrompt=
+`Answer the question using context.
+
+Context:
+${context}
+
+Question:
+${query}
+`
+
+steps.innerHTML+=`
+<div class="step">
+<b>Step 4 — Augmented Prompt</b>
+<div class="vector">${augmentedPrompt}</div>
+</div>
+`
+
+const answer=document.getElementById("answer")
+
+answer.innerHTML=`
+<div class="answer">
+Simulated LLM answer based on retrieved context:<br><br>
+${context}
+</div>
+`
+
+}
+
+</script>
+
+</body>
+</html>
